@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>P2P USDT</title>
+<style>
+:root{--bg:#000;--card:#1c1c1e;--line:#2c2c2e;--tx:#fff;--hint:#8e8e93;--acc:#2AABEE;--buy:#34c759;--sell:#ff9f0a;--bad:#ff453a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;padding-bottom:88px}
+.page{display:none;padding:12px}.page.on{display:block}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px}
+h2{font-size:13px;font-weight:500;margin:0 0 10px;color:var(--hint)}
+.big{font-size:32px;font-weight:700;letter-spacing:-.6px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}.row>span:first-child{color:var(--hint)}
+.pos{color:var(--buy)}.neg{color:var(--bad)}.small{font-size:13px;color:var(--hint)}
+label{display:block;font-size:13px;color:var(--hint);margin:12px 0 4px}
+input,select{width:100%;padding:12px;border-radius:10px;border:0;background:var(--line);color:var(--tx);font-size:16px;font-family:inherit;appearance:none}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;background:var(--acc);color:#fff;font-size:16px;font-weight:600}
+.btn.buy{background:var(--buy)}.btn.sell{background:var(--sell)}.btn.exp{background:var(--bad)}.btn.ghost{background:var(--line)}
+.btn.s{width:auto;margin:0;padding:8px 12px;font-size:14px}
+.seg,.chips{display:flex;gap:6px;margin-bottom:6px}.chips{flex-wrap:wrap}
+.seg button,.chip{flex:1;padding:10px 6px;border:0;border-radius:10px;background:var(--line);color:var(--hint);font-size:14px}
+.chip{flex:none;padding:8px 12px;border-radius:20px}
+.seg button.on,.chip.on{background:var(--acc);color:#fff}
+.seg button.on[data-m=buy]{background:var(--buy)}.seg button.on[data-m=sell]{background:var(--sell)}.seg button.on[data-m=exp]{background:var(--bad)}
+.preview{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--line);font-size:14px;white-space:pre-line}
+.op{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.op:last-child{border:0}
+.del{background:none;border:0;color:var(--bad);font-size:13px;padding:4px 0}
+.warn{background:#3a1d1b;color:#ff8a80;border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0c0c0d;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0)}
+nav button{flex:1;padding:13px 4px;border:0;background:none;color:var(--hint);font-size:13px}nav button.on{color:var(--acc);font-weight:600}
+.empty{text-align:center;color:var(--hint);padding:28px 8px}
+</style>
+</head>
+<body>
+<div id="boot" class="empty">Загрузка…</div>
+
+<section class="page" id="p-home">
+  <div id="low"></div>
+  <div class="card"><h2>На руках</h2>
+    <div class="big" id="bal">0</div>
+    <div class="row"><span>Средний курс остатка (безубыток)</span><span id="avg">—</span></div>
+    <div class="row"><span id="tgl">Курс для маржи</span><span id="tgt">—</span></div>
+    <div class="row"><span>Вложено, руб</span><span id="val">0</span></div>
+    <div class="row"><span>Прибыль на остатке по рынку</span><span id="unr">—</span></div>
+  </div>
+  <div class="card"><h2>Результат за период</h2>
+    <div class="chips" id="chips">
+      <button class="chip on" data-p="today">Сегодня</button><button class="chip" data-p="week">Неделя</button>
+      <button class="chip" data-p="month">Месяц</button><button class="chip" data-p="custom">Свои даты</button></div>
+    <div class="two" id="custom" style="display:none"><div><label>С</label><input type="date" id="d1"></div><div><label>По</label><input type="date" id="d2"></div></div>
+    <div class="small" style="margin-top:8px">Чистая прибыль</div>
+    <div class="big" id="net">0</div><div class="small" id="netU"></div>
+    <div style="margin-top:8px">
+      <div class="row"><span>Валовая прибыль</span><span id="gross">0</span></div>
+      <div class="row"><span>Расходы</span><span id="expS">0</span></div>
+      <div class="row"><span>Маржа</span><span id="mar">—</span></div>
+      <div class="row"><span>Оборот, руб</span><span id="turn">0</span></div>
+      <div class="row"><span>Куплено / продано, USDT</span><span id="vol">0</span></div>
+      <div class="row"><span>Ср. курс покупки / продажи</span><span id="ravg">—</span></div>
+      <div class="row"><span>Сделок</span><span id="cnt">0</span></div></div>
+  </div>
+  <div class="card"><h2>Настройки</h2>
+    <div class="two"><div><label>Рыночный курс</label><input type="number" inputmode="decimal" step="any" id="st-mr"></div>
+    <div><label>Желаемая маржа, %</label><input type="number" inputmode="decimal" step="any" id="st-tm"></div></div>
+    <label>Предупреждать, если остаток USDT меньше</label><input type="number" inputmode="decimal" step="any" id="st-lb">
+    <button class="btn ghost" id="st-save">Сохранить настройки</button></div>
+</section>
+
+<section class="page" id="p-add"><div class="card">
+  <div class="seg" id="seg"><button class="on" data-m="buy">Покупка</button><button data-m="sell">Продажа</button><button data-m="exp">Расход</button></div>
+  <div id="f-op">
+    <div class="two"><div><label>Сумма, USDT</label><input type="number" inputmode="decimal" step="any" id="f-usdt"></div>
+    <div><label>Курс, руб</label><input type="number" inputmode="decimal" step="any" id="f-rate"></div></div>
+    <label>Кошелёк</label><select id="f-wal"></select>
+    <label>Клиент</label><input type="text" id="f-client" list="clients" placeholder="необязательно"><datalist id="clients"></datalist>
+  </div>
+  <div id="f-ex" style="display:none">
+    <label>Сумма, руб</label><input type="number" inputmode="decimal" step="any" id="e-amt">
+    <label>Категория</label><input type="text" id="e-cat" list="cats" placeholder="комиссия, аренда, зарплата…">
+    <datalist id="cats"><option>Комиссия</option><option>Аренда</option><option>Зарплата</option><option>Прочее</option></datalist>
+  </div>
+  <label>Дата и время</label><input type="datetime-local" id="f-ts">
+  <label>Заметка</label><input type="text" id="f-note">
+  <div class="preview" id="prev">Введите сумму и курс</div>
+  <button class="btn buy" id="save">Записать</button>
+</div></section>
+
+<section class="page" id="p-wal">
+  <div id="wlist"></div>
+  <div class="card"><h2>Новый кошелёк (USDT)</h2>
+    <label>Название</label><input type="text" id="w-name" placeholder="Касса, Binance, карта…">
+    <label>Начальный остаток, USDT</label><input type="number" inputmode="decimal" step="any" id="w-open" value="0">
+    <button class="btn" id="w-save">Добавить кошелёк</button></div>
+</section>
+
+<section class="page" id="p-hist"><div class="card" id="list"></div></section>
+
+<nav><button class="on" data-t="home">Итоги</button><button data-t="add">Записать</button><button data-t="wal">Кошельки</button><button data-t="hist">История</button></nav>
+
+<script>
+/* >>> ВСТАВЬТЕ АДРЕС ВАШЕГО ПРОЕКТА SUPABASE (Project URL) <<< */
+const API = 'https://ВАШ_ПРОЕКТ.supabase.co/functions/v1/api';
+
+const tg = window.Telegram && Telegram.WebApp;
+try { tg.ready(); tg.expand(); tg.setHeaderColor('#000000'); tg.setBackgroundColor('#000000'); } catch (e) {}
+const $ = id => document.getElementById(id);
+const fmt = (n, d = 2) => Number(n).toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
+const sg = n => (n > 0 ? '+' : '') + fmt(n), cls = n => n >= 0 ? 'pos' : 'neg';
+const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const msg = m => tg && tg.showAlert ? tg.showAlert(m) : alert(m);
+const ask = (m, cb) => tg && tg.showConfirm ? tg.showConfirm(m, ok => ok && cb()) : (confirm(m) && cb());
+const tsIn = ts => new Date(ts - new Date(ts).getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+const buzz = () => { try { tg.HapticFeedback.notificationOccurred('success'); } catch (e) {} };
+
+async function api(action, table, data, id) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData: tg ? tg.initData : '', action, table, data, id }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+let S = { ops: [], exp: [], wal: [], set: {} }, period = 'today', mode = 'buy';
+const nOp = o => ({ ...o, ts: +new Date(o.ts), usdt: +o.usdt, rate: +o.rate });
+const nEx = e => ({ ...e, ts: +new Date(e.ts), amount: +e.amount });
+const nWa = w => ({ ...w, opening: +w.opening });
+
+/* FIFO: продажа списывает самые ранние закупки */
+function compute(list) {
+  const sorted = [...list].sort((a, b) => a.ts - b.ts), lots = [], res = [];
+  let ok = true;
+  for (const o of sorted) {
+    if (o.type === 'buy') { lots.push({ q: o.usdt, r: o.rate }); res.push({ ...o }); continue; }
+    let need = o.usdt, cost = 0;
+    while (need > 1e-9 && lots.length) {
+      const l = lots[0], t = Math.min(l.q, need);
+      cost += t * l.r; l.q -= t; need -= t;
+      if (l.q <= 1e-9) lots.shift();
+    }
+    if (need > 1e-9) ok = false;
+    const rev = o.usdt * o.rate, profit = rev - cost;
+    res.push({ ...o, cost, rev, profit, profitUsdt: profit / o.rate, margin: cost ? profit / cost * 100 : 0 });
+  }
+  const bal = lots.reduce((s, l) => s + l.q, 0), val = lots.reduce((s, l) => s + l.q * l.r, 0);
+  return { res, ok, bal, val, avg: bal ? val / bal : 0 };
+}
+
+function range() {
+  const n = new Date(), s = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  if (period === 'today') return [+s, +s + 864e5];
+  if (period === 'week') { const st = new Date(s); st.setDate(s.getDate() - (s.getDay() + 6) % 7); return [+st, +st + 7 * 864e5]; }
+  if (period === 'month') return [+new Date(n.getFullYear(), n.getMonth(), 1), +new Date(n.getFullYear(), n.getMonth() + 1, 1)];
+  return [$('d1').value ? +new Date($('d1').value + 'T00:00') : 0, $('d2').value ? +new Date($('d2').value + 'T00:00') + 864e5 : Infinity];
+}
+const walBal = w => w.opening + S.ops.filter(o => o.wallet_id === w.id).reduce((s, o) => s + (o.type === 'buy' ? o.usdt : -o.usdt), 0);
+
+function render() {
+  const c = compute(S.ops), st = S.set, tm = +st.target_margin || 0, mr = +st.market_rate || 0;
+  $('bal').textContent = fmt(c.bal) + ' USDT';
+  $('avg').textContent = c.bal ? fmt(c.avg, 4) : '—';
+  $('tgl').textContent = 'Курс для маржи ' + tm + '%';
+  $('tgt').textContent = c.bal ? fmt(c.avg * (1 + tm / 100), 4) : '—';
+  $('val').textContent = fmt(c.val);
+  const un = c.bal && mr ? (mr - c.avg) * c.bal : null;
+  $('unr').innerHTML = un === null ? '—' : `<b class="${cls(un)}">${sg(un)} руб</b>`;
+  $('low').innerHTML = st.low_balance && c.bal < +st.low_balance ? `<div class="warn">Остаток USDT ниже ${fmt(st.low_balance)}. Пора докупить.</div>` : '';
+
+  const [a, b] = range(), inR = c.res.filter(o => o.ts >= a && o.ts < b);
+  const bu = inR.filter(o => o.type === 'buy'), se = inR.filter(o => o.type === 'sell');
+  const sum = (arr, f) => arr.reduce((s, o) => s + f(o), 0);
+  const bU = sum(bu, o => o.usdt), bR = sum(bu, o => o.usdt * o.rate), sU = sum(se, o => o.usdt), sR = sum(se, o => o.rev);
+  const gross = sum(se, o => o.profit), cost = sum(se, o => o.cost);
+  const ex = sum(S.exp.filter(e => e.ts >= a && e.ts < b), e => e.amount), net = gross - ex;
+  const netU = sU ? net / (sR / sU) : 0;
+  $('net').textContent = sg(net) + ' руб'; $('net').className = 'big ' + cls(net);
+  $('netU').textContent = sg(netU) + ' USDT';
+  $('gross').textContent = sg(gross); $('expS').textContent = ex ? '−' + fmt(ex) : '0,00';
+  $('mar').textContent = cost ? fmt(gross / cost * 100) + ' %' : '—';
+  $('turn').textContent = fmt(bR + sR);
+  $('vol').textContent = fmt(bU) + ' / ' + fmt(sU);
+  $('ravg').textContent = (bU ? fmt(bR / bU, 4) : '—') + ' / ' + (sU ? fmt(sR / sU, 4) : '—');
+  $('cnt').textContent = inR.length;
+
+  $('clients').innerHTML = [...new Set(S.ops.map(o => o.client).filter(Boolean))].map(x => `<option>${esc(x)}</option>`).join('');
+  $('f-wal').innerHTML = '<option value="">Без кошелька</option>' + S.wal.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  $('wlist').innerHTML = S.wal.length ? S.wal.map(w => `<div class="card"><div class="row" style="border:0;padding:0"><b>${esc(w.name)}</b><b>${fmt(walBal(w))} USDT</b></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn s ghost" onclick="recon('${w.id}')">Сверка</button><button class="btn s ghost" onclick="delWal('${w.id}')">Удалить</button></div></div>`).join('')
+    : '<div class="card empty">Кошельков пока нет. Добавьте кассу, биржу или карту.</div>';
+
+  const items = [...c.res.map(o => ({ ...o, k: 'op' })), ...S.exp.map(e => ({ ...e, k: 'ex' }))].sort((x, y) => y.ts - x.ts);
+  $('list').innerHTML = items.length ? items.map(o => {
+    const d = new Date(o.ts).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const meta = `${d}${o.client ? ' · ' + esc(o.client) : ''}${o.note ? ' · ' + esc(o.note) : ''}`;
+    if (o.k === 'ex') return `<div class="op"><div><b class="neg">Расход ${esc(o.category)}</b><div class="small">${meta}</div><button class="del" onclick="del('expenses','${o.id}')">Удалить</button></div><b class="neg">−${fmt(o.amount)}</b></div>`;
+    const buy = o.type === 'buy';
+    return `<div class="op"><div><b style="color:var(--${buy ? 'buy' : 'sell'})">${buy ? 'Покупка' : 'Продажа'} ${fmt(o.usdt)} USDT</b>
+      <div class="small">по ${fmt(o.rate, 4)} = ${fmt(o.usdt * o.rate)} руб</div><div class="small">${meta}</div>
+      <button class="del" onclick="del('ops','${o.id}')">Удалить</button></div>
+      <div style="text-align:right">${buy ? '' : `<b class="${cls(o.profit)}">${sg(o.profit)} руб</b><div class="small">маржа ${fmt(o.margin)} %</div>`}</div></div>`;
+  }).join('') : '<div class="empty">Операций пока нет. Начните со вкладки «Записать».</div>';
+  upd();
+}
+
+/* Форма */
+function upd() {
+  const pv = $('prev');
+  if (mode === 'exp') { pv.textContent = +$('e-amt').value > 0 ? 'Расход: ' + fmt($('e-amt').value) + ' руб' : 'Введите сумму'; return; }
+  const U = parseFloat($('f-usdt').value), R = parseFloat($('f-rate').value);
+  if (!(U > 0 && R > 0)) { pv.textContent = 'Введите сумму и курс'; return; }
+  let t = 'Итого: ' + fmt(U * R) + ' руб';
+  if (mode === 'sell') {
+    const c = compute([...S.ops, { id: 'tmp', type: 'sell', usdt: U, rate: R, ts: +new Date($('f-ts').value) || Date.now() }]), me = c.res.find(o => o.id === 'tmp');
+    if (!c.ok) t += '\nНе хватает USDT на остатке';
+    else { const be = me.cost / U, tm = +S.set.target_margin || 0;
+      t += `\nПрибыль: ${sg(me.profit)} руб (маржа ${fmt(me.margin)} %)\nБезубыток: ${fmt(be, 4)} · для ${tm}%: ${fmt(be * (1 + tm / 100), 4)}`; }
+  }
+  pv.textContent = t;
+}
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  $('f-op').style.display = m === 'exp' ? 'none' : 'block'; $('f-ex').style.display = m === 'exp' ? 'block' : 'none';
+  const sv = $('save'); sv.className = 'btn ' + m; sv.textContent = { buy: 'Записать покупку', sell: 'Записать продажу', exp: 'Записать расход' }[m];
+  upd();
+}
+document.querySelectorAll('#seg button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+['f-usdt', 'f-rate', 'f-ts', 'e-amt'].forEach(id => $(id).addEventListener('input', upd));
+
+$('save').onclick = async () => {
+  const T = +new Date($('f-ts').value);
+  if (!T) return msg('Укажите дату и время.');
+  const btn = $('save'); btn.disabled = true;
+  try {
+    if (mode === 'exp') {
+      const A = parseFloat($('e-amt').value);
+      if (!(A > 0)) return msg('Введите сумму расхода.');
+      S.exp.push(nEx(await api('add', 'expenses', { amount: A, category: $('e-cat').value.trim() || 'Прочее', ts: new Date(T).toISOString(), note: $('f-note').value.trim() })));
+      $('e-amt').value = ''; $('e-cat').value = '';
+    } else {
+      const U = parseFloat($('f-usdt').value), R = parseFloat($('f-rate').value);
+      if (!(U > 0 && R > 0)) return msg('Введите сумму и курс.');
+      const op = { type: mode, usdt: U, rate: R, ts: new Date(T).toISOString(), client: $('f-client').value.trim() || null, note: $('f-note').value.trim() || null, wallet_id: $('f-wal').value || null };
+      if (!compute([...S.ops, nOp({ ...op, id: 'x' })]).ok) return msg('Не хватает USDT на остатке для этой продажи.');
+      S.ops.push(nOp(await api('add', 'ops', op)));
+      $('f-usdt').value = ''; $('f-rate').value = ''; $('f-client').value = '';
+    }
+    $('f-note').value = ''; $('f-ts').value = tsIn(Date.now()); buzz(); render(); show('hist');
+  } catch (e) { msg('Ошибка: ' + e.message); } finally { btn.disabled = false; }
+};
+
+async function del(table, id) {
+  ask('Удалить запись?', async () => {
+    try {
+      if (table === 'ops') { const next = S.ops.filter(o => o.id !== id); if (!compute(next).ok) return msg('Нельзя удалить: продаж станет больше, чем куплено.'); }
+      await api('delete', table, null, id);
+      if (table === 'ops') S.ops = S.ops.filter(o => o.id !== id); else S.exp = S.exp.filter(e => e.id !== id);
+      render();
+    } catch (e) { msg('Ошибка: ' + e.message); }
+  });
+}
+
+/* Кошельки */
+$('w-save').onclick = async () => {
+  const n = $('w-name').value.trim(); if (!n) return msg('Введите название.');
+  try { S.wal.push(nWa(await api('add', 'wallets', { name: n, currency: 'USDT', opening: parseFloat($('w-open').value) || 0 }))); $('w-name').value = ''; $('w-open').value = 0; buzz(); render(); }
+  catch (e) { msg('Ошибка: ' + e.message); }
+};
+function delWal(id) { ask('Удалить кошелёк? Сделки останутся.', async () => { try { await api('delete', 'wallets', null, id); S.wal = S.wal.filter(w => w.id !== id); render(); } catch (e) { msg('Ошибка: ' + e.message); } }); }
+function recon(id) {
+  const w = S.wal.find(x => x.id === id), exp = walBal(w), v = prompt('Фактический остаток «' + w.name + '», USDT (по учёту ' + fmt(exp) + ')');
+  if (v === null) return;
+  const act = parseFloat(String(v).replace(',', '.')); if (isNaN(act)) return msg('Введите число.');
+  const diff = act - exp;
+  api('add', 'wallet_checks', { wallet_id: id, expected: exp, actual: act }).catch(() => {});
+  if (Math.abs(diff) < 1e-9) return msg('Сходится. Расхождений нет.');
+  ask('Расхождение ' + sg(diff) + ' USDT. Исправить остаток кошелька?', async () => {
+    try { const r = await api('update', 'wallets', { opening: w.opening + diff }, id); w.opening = +r.opening; render(); } catch (e) { msg('Ошибка: ' + e.message); }
+  });
+}
+
+/* Настройки */
+$('st-save').onclick = async () => {
+  const n = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+  try { S.set = await api('settings', null, { market_rate: n('st-mr'), target_margin: n('st-tm') ?? 1, low_balance: n('st-lb') }); buzz(); render(); msg('Сохранено.'); }
+  catch (e) { msg('Ошибка: ' + e.message); }
+};
+
+/* Навигация и период */
+function show(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('on', p.id === 'p-' + id));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === id));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.t));
+document.querySelectorAll('#chips .chip').forEach(c => c.onclick = () => {
+  period = c.dataset.p; document.querySelectorAll('#chips .chip').forEach(x => x.classList.toggle('on', x === c));
+  $('custom').style.display = period === 'custom' ? 'grid' : 'none'; render();
+});
+$('d1').onchange = $('d2').onchange = render;
+
+/* Запуск */
+(async () => {
+  $('f-ts').value = tsIn(Date.now());
+  try {
+    const [me, ops, exp, wal] = await Promise.all([api('me'), api('list', 'ops'), api('list', 'expenses'), api('list', 'wallets')]);
+    S = { set: me.settings, ops: ops.map(nOp), exp: exp.map(nEx), wal: wal.map(nWa) };
+    $('st-mr').value = S.set.market_rate ?? ''; $('st-tm').value = S.set.target_margin ?? 1; $('st-lb').value = S.set.low_balance ?? '';
+    $('boot').style.display = 'none'; show('home'); render();
+  } catch (e) {
+    $('boot').innerHTML = e.message === 'blocked' ? 'Доступ закрыт.' : 'Не удалось подключиться.<br>Откройте приложение из Telegram и проверьте адрес API.<br><span class="small">' + esc(e.message) + '</span>';
+  }
+})();
+</script>
+</body>
+</html>
