@@ -108,6 +108,25 @@ nav button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:cen
 nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:#e6dfff;background:linear-gradient(160deg,rgba(139,108,246,.28),rgba(109,77,240,.12));border-color:var(--accbd)}
 nav button.on svg{stroke:#b7a3ff}
+.acts{display:flex;gap:18px}
+.del.edit{color:#b7a3ff}
+.chart-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.chart-top .cap{margin:0}
+.seg.mini{margin:0;width:auto}.seg.mini button{flex:none;padding:6px 11px;font-size:12px}
+.ch-info{font-size:13px;color:var(--hint);margin-bottom:10px;min-height:19px}.ch-info b{color:var(--tx);font-weight:600}
+.ch-box{position:relative;height:130px}
+.ch-zero{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,.14)}
+.ch-cols{position:absolute;inset:0;display:flex;gap:3px}
+.ch-col{position:relative;flex:1;min-width:0;cursor:pointer}
+.ch-col i{position:absolute;left:12%;right:12%;border-radius:3px;background:linear-gradient(180deg,#a58bfb,#6d4df0)}
+.ch-col.neg i{background:linear-gradient(180deg,#e5484d,#fb8a8a)}
+.ch-col.sel i{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.ch-col.zero i{background:rgba(255,255,255,.2)}
+.ch-ax{display:flex;justify-content:space-between;margin-top:8px;font:400 10px/1 var(--mono);color:var(--mute)}
+.hq{margin-bottom:14px}
+.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.62);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.sheet{width:100%;max-width:640px;max-height:92vh;overflow:auto;background:var(--card);border:1px solid var(--line2);border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h3{margin:0 0 14px;font-size:18px;font-weight:600;letter-spacing:-.02em}
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:9;padding:10px 16px;border-radius:12px;background:#17171f;border:1px solid var(--line2);color:#fff;font:400 13px var(--mono);opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
 #toast.on{opacity:1}
 #boot{padding:60px 24px;text-align:center;color:var(--hint)}
@@ -131,6 +150,12 @@ nav button.on svg{stroke:#b7a3ff}
   <div class="card" id="custom" hidden>
     <div class="two"><div><label>С</label><input type="date" id="d1"></div><div><label>По</label><input type="date" id="d2"></div></div>
     <div class="sm" style="margin-top:10px">Если даты не заданы, показываются данные за всё время.</div>
+  </div>
+  <div class="card" id="chart">
+    <div class="chart-top"><p class="cap">Прибыль по дням</p><div class="seg mini" id="chseg"><button data-n="7">7</button><button class="on" data-n="14">14</button><button data-n="30">30</button></div></div>
+    <div class="ch-info" id="ch-info"></div>
+    <div class="ch-box" id="ch-box"></div>
+    <div class="ch-ax" id="ch-ax"></div>
   </div>
   <div class="card" id="sum"></div>
   <div class="card" id="rest"></div>
@@ -178,6 +203,7 @@ nav button.on svg{stroke:#b7a3ff}
 <section class="page" id="p-hist">
   <div class="ph"><h1>История</h1><p>Сделки и рейтинг клиентов</p></div>
   <div class="seg flat" id="hseg"><button class="on" data-v="list">Сделки</button><button data-v="top">Топ клиентов</button></div>
+  <div class="hq" id="hsearch"><input type="search" id="hq" placeholder="Поиск: ник, сумма, заметка…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
   <div id="hbody"></div>
 </section>
 
@@ -209,6 +235,7 @@ nav button.on svg{stroke:#b7a3ff}
   <button data-t="goals"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/></svg>Цели</button>
 </nav>
 <div id="toast"></div>
+<div class="sheet-bg" id="edit" hidden></div>
 
 <script>
 /* Адрес серверной функции Supabase */
@@ -271,6 +298,7 @@ function openClient(c) {
 
 /* ---------- данные ---------- */
 let S = { ops: [], exp: [], goals: [] }, C = null, loaded = false;
+let histQ = '', chartN = 14, chartSel = -1;
 let period = 'today', mode = 'buy', histView = 'list', histClient = null, gCur = 'RUB', gKind = 'month';
 const nOp = o => ({ ...o, ts: +new Date(o.ts), usdt: +o.usdt, rate: +o.rate });
 const nEx = e => ({ ...e, ts: +new Date(e.ts), amount: +e.amount });
@@ -412,13 +440,13 @@ function dayLabel(d) {
 function itemHtml(o) {
   const t = new Date(o.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   if (o.k === 'ex') return `<div class="op"><div class="op-l"><b class="neg">💸 Расход · ${esc(o.category)}</b><div class="sm">${t}${o.note ? ' · ' + esc(o.note) : ''}</div>
-    <button class="del" data-del="expenses:${o.id}">Удалить</button></div><div class="op-r"><b class="neg">−${fmt(o.amount)}</b><div class="sm">руб</div></div></div>`;
+    <div class="acts"><button class="del edit" data-edit="expenses:${o.id}">Изменить</button><button class="del" data-del="expenses:${o.id}">Удалить</button></div></div><div class="op-r"><b class="neg">−${fmt(o.amount)}</b><div class="sm">руб</div></div></div>`;
   const buy = o.type === 'buy';
   const cl = o.client ? ` · 👤 <span class="lnk" data-cl="${esc(o.client)}">${esc(clientLabel(o.client))}${clientUrl(o.client) ? ' ↗' : ''}</span>` : '';
   const req = o.requisites ? `<div><span class="req" data-copy="${esc(o.requisites)}">📱 ${esc(o.requisites)}</span></div>` : '';
   return `<div class="op"><div class="op-l"><b style="color:var(--${buy ? 'buy' : 'sell'})">${buy ? 'Покупка' : 'Продажа'} ${fmt(o.usdt)} USDT</b>
     <div class="sm">по ${fmt(o.rate, 4)} = ${fmt(o.usdt * o.rate)} руб</div><div class="sm">${t}${cl}</div>${req}${o.note ? `<div class="sm">📝 ${esc(o.note)}</div>` : ''}
-    <button class="del" data-del="ops:${o.id}">Удалить</button></div>
+    <div class="acts"><button class="del edit" data-edit="ops:${o.id}">Изменить</button><button class="del" data-del="ops:${o.id}">Удалить</button></div></div>
     <div class="op-r">${buy ? `<b>${fmt(o.usdt * o.rate)}</b><div class="sm">руб</div>` : `<b class="${cls(o.profit)}">${sg(o.profit)} руб</b><div class="sm">маржа ${fmt(o.margin)} %</div>`}</div></div>`;
 }
 function listHtml() {
@@ -427,6 +455,17 @@ function listHtml() {
     items = items.filter(o => o.k === 'op' && o.client && o.client.toLowerCase() === histClient);
     const nm = (topClients().find(r => r.key === histClient) || {}).name || histClient;
     filt = `<div class="filt"><span>Клиент: <b>${esc(clientLabel(nm))}</b></span><button data-act="clr">Сбросить</button></div>`;
+  }
+  if (histQ) {
+    const words = histQ.split(/\s+/).filter(Boolean);
+    items = items.filter(o => {
+      const hay = (o.k === 'ex'
+        ? ['расход', o.category, o.note, o.amount]
+        : [o.type === 'buy' ? 'покупка' : 'продажа', o.client, clientLabel(o.client || ''), o.requisites, o.note, o.usdt, o.rate, o.usdt * o.rate]
+      ).filter(x => x != null && x !== '').join(' ').toLowerCase().replace(/,/g, '.');
+      return words.every(w => hay.includes(w.replace(/,/g, '.').replace(/^@/, '')));
+    });
+    if (!items.length) return filt + '<div class="card empty"><div class="em">🔍</div><b>Ничего не найдено</b><div class="sm">Попробуйте другой запрос.</div></div>';
   }
   items.sort((a, b) => b.ts - a.ts);
   if (!items.length) return filt + '<div class="card empty"><div class="em">🧾</div><b>Операций пока нет</b><div class="sm">Запишите первую сделку на вкладке «Расчёт».</div></div>';
@@ -456,6 +495,7 @@ function topHtml() {
 }
 function renderHist() {
   document.querySelectorAll('#hseg button').forEach(b => b.classList.toggle('on', b.dataset.v === histView));
+  $('hsearch').hidden = histView === 'top';
   $('hbody').innerHTML = histView === 'top' ? topHtml() : listHtml();
 }
 
@@ -492,7 +532,71 @@ function renderGoals() {
   $('glist').innerHTML = h;
   $('g-new').textContent = S.goals.length ? '＋ Новая цель' : 'Поставить цель';
 }
-function render() { C = compute(S.ops); renderStats(); renderHist(); renderGoals(); renderForm(); }
+/* график прибыли по дням (чистая прибыль за каждый день) */
+function renderChart() {
+  const t0 = dayStart(Date.now()), days = [];
+  for (let i = chartN - 1; i >= 0; i--) {
+    const d = new Date(t0), a = +new Date(d.getFullYear(), d.getMonth(), d.getDate() - i), b = +new Date(d.getFullYear(), d.getMonth(), d.getDate() - i + 1);
+    days.push({ a, v: calcStats(a, b).net });
+  }
+  if (chartSel >= days.length) chartSel = -1;
+  const total = days.reduce((s, x) => s + x.v, 0);
+  const ds = a => new Date(a).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  $('ch-info').innerHTML = chartSel >= 0
+    ? `${ds(days[chartSel].a)}: <b class="${cls(days[chartSel].v)}">${sg(days[chartSel].v)} руб</b>`
+    : `За ${chartN} дн.: <b class="${cls(total)}">${sg(total)} руб</b>`;
+  const H = 130, mp = Math.max(0, ...days.map(x => x.v)), mn = Math.max(0, ...days.map(x => -x.v)), rg = (mp + mn) || 1, zy = H * mp / rg;
+  $('ch-box').innerHTML = `<div class="ch-zero" style="top:${zy.toFixed(1)}px"></div><div class="ch-cols">` + days.map((x, i) => {
+    const h = Math.abs(x.v) / rg * H, hh = x.v === 0 ? 2 : Math.max(h, 3), top = x.v >= 0 ? zy - hh : zy;
+    return `<div class="ch-col${x.v < 0 ? ' neg' : x.v === 0 ? ' zero' : ''}${i === chartSel ? ' sel' : ''}" data-i="${i}"><i style="top:${top.toFixed(1)}px;height:${hh.toFixed(1)}px"></i></div>`;
+  }).join('') + '</div>';
+  $('ch-ax').innerHTML = `<span>${ds(days[0].a)}</span><span>${ds(days[days.length - 1].a)}</span>`;
+  document.querySelectorAll('#chseg button').forEach(b => b.classList.toggle('on', +b.dataset.n === chartN));
+}
+$('chseg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; chartN = +b.dataset.n; chartSel = -1; renderChart(); });
+$('ch-box').addEventListener('click', e => { const c = e.target.closest('.ch-col'); if (!c) return; const i = +c.dataset.i; chartSel = chartSel === i ? -1 : i; renderChart(); });
+
+/* ---------- редактирование записи ---------- */
+function openEdit(table, id) {
+  const isOp = table === 'ops', r = (isOp ? S.ops : S.exp).find(x => x.id === id);
+  if (!r) return;
+  const f = (l, h) => `<label>${l}</label>${h}`;
+  $('edit').innerHTML = `<div class="sheet"><h3>${isOp ? (r.type === 'buy' ? 'Изменить покупку' : 'Изменить продажу') : 'Изменить расход'}</h3>` + (isOp
+    ? `<div class="two"><div><label>Сумма, USDT</label><input type="number" inputmode="decimal" step="any" id="x-usdt" value="${r.usdt}"></div><div><label>Курс, руб</label><input type="number" inputmode="decimal" step="any" id="x-rate" value="${r.rate}"></div></div>` +
+      f('Ник в Telegram', `<input type="text" id="x-client" value="${esc(r.client || '')}" autocapitalize="off" autocomplete="off" spellcheck="false">`) +
+      f('Номер или кошелёк клиента', `<input type="text" id="x-req" value="${esc(r.requisites || '')}">`)
+    : f('Сумма, руб', `<input type="number" inputmode="decimal" step="any" id="x-amt" value="${r.amount}">`) + f('Категория', `<input type="text" id="x-cat" value="${esc(r.category || '')}">`)) +
+    f('Дата и время', `<input type="datetime-local" id="x-ts" value="${tsIn(r.ts)}">`) + f('Заметка', `<input type="text" id="x-note" value="${esc(r.note || '')}">`) +
+    `<button class="btn" id="x-save">Сохранить</button><button class="btn ghost" id="x-cancel">Отмена</button></div>`;
+  $('edit').hidden = false;
+  $('x-cancel').onclick = closeEdit;
+  $('x-save').onclick = () => saveEdit(table, id);
+}
+function closeEdit() { $('edit').hidden = true; $('edit').innerHTML = ''; }
+$('edit').addEventListener('click', e => { if (e.target === $('edit')) closeEdit(); });
+async function saveEdit(table, id) {
+  const T = +new Date($('x-ts').value);
+  if (!T) return msg('Укажите дату и время.');
+  const btn = $('x-save'); btn.disabled = true;
+  try {
+    if (table === 'ops') {
+      const U = parseNum($('x-usdt').value), R = parseNum($('x-rate').value);
+      if (!(U > 0 && R > 0)) return msg('Введите сумму и курс.');
+      const d = { usdt: U, rate: R, ts: new Date(T).toISOString(), client: normClient($('x-client').value) || null, requisites: $('x-req').value.trim() || null, note: $('x-note').value.trim() || null };
+      if (!compute(S.ops.map(o => o.id === id ? nOp({ ...o, ...d }) : o)).ok) return msg('Не хватает USDT на остатке: после правки продаж станет больше, чем куплено.');
+      const row = nOp(await api('update', 'ops', d, id));
+      S.ops = S.ops.map(o => o.id === id ? row : o);
+    } else {
+      const A = parseNum($('x-amt').value);
+      if (!(A > 0)) return msg('Введите сумму расхода.');
+      const row = nEx(await api('update', 'expenses', { amount: A, category: $('x-cat').value.trim() || 'Прочее', ts: new Date(T).toISOString(), note: $('x-note').value.trim() || null }, id));
+      S.exp = S.exp.map(x => x.id === id ? row : x);
+    }
+    closeEdit(); buzz(); render(); toast('Сохранено');
+  } catch (e) { msg('Ошибка: ' + e.message); } finally { btn.disabled = false; }
+}
+
+function render() { C = compute(S.ops); renderStats(); renderChart(); renderHist(); renderGoals(); renderForm(); }
 
 /* ---------- действия ---------- */
 function show(id) {
@@ -552,10 +656,12 @@ function delGoal(id) {
   });
 }
 
+$('hq').addEventListener('input', () => { histQ = $('hq').value.trim().toLowerCase(); renderHist(); });
 bindSeg('hseg', b => { histView = b.dataset.v; renderHist(); });
 $('hbody').addEventListener('click', e => {
   const cp = e.target.closest('[data-copy]'); if (cp) return copyText(cp.dataset.copy);
   const lk = e.target.closest('[data-cl]'); if (lk) return openClient(lk.dataset.cl);
+  const ed = e.target.closest('[data-edit]'); if (ed) { const i = ed.dataset.edit.indexOf(':'); return openEdit(ed.dataset.edit.slice(0, i), ed.dataset.edit.slice(i + 1)); }
   const dl = e.target.closest('[data-del]'); if (dl) { const i = dl.dataset.del.indexOf(':'); return del(dl.dataset.del.slice(0, i), dl.dataset.del.slice(i + 1)); }
   const tp = e.target.closest('[data-top]'); if (tp) { histClient = tp.dataset.top; histView = 'list'; renderHist(); return window.scrollTo(0, 0); }
   if (e.target.closest('[data-act="clr"]')) { histClient = null; renderHist(); }
